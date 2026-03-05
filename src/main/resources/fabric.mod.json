@@ -1,0 +1,30 @@
+{
+	"schemaVersion": 1,
+	"id": "tabstats",
+	"version": "${version}",
+	"name": "TabStats",
+	"description": "Track your Tab key statistics and unlock achievements! Monitor how many times you press Tab and how long you keep it open.",
+	"authors": [
+		"Nyxor Studios"
+	],
+	"license": "CC0-1.0",
+	"icon": "assets/tabstats/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.tabstats.TabStats"
+		],
+		"client": [
+			"com.tabstats.TabStatsClient"
+		]
+	},
+	"mixins": [
+		"tabstats.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.18.4",
+		"minecraft": "~1.21.10",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
