@@ -4,14 +4,10 @@ import com.tabstats.achievement.AchievementChecker;
 import com.tabstats.data.PlayerStats;
 import com.tabstats.data.StatsManager;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.Identifier;
-import org.lwjgl.glfw.GLFW;
 
 public class KeyInputHandler {
-    private static boolean wasTabPressed = false;
+    private static boolean wasTabListOpen = false;
     private static long lastSaveTime = System.currentTimeMillis();
     private static final long SAVE_INTERVAL = 30000;
 
@@ -19,22 +15,19 @@ public class KeyInputHandler {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null) return;
 
-            boolean isTabPressed = GLFW.glfwGetKey(
-                MinecraftClient.getInstance().getWindow().getHandle(),
-                GLFW.GLFW_KEY_TAB
-            ) == GLFW.GLFW_PRESS;
+            boolean isTabListOpen = client.options.playerListKey.isPressed();
 
-            if (isTabPressed && !wasTabPressed) {
-                sendTabPressPacket();
+            if (isTabListOpen && !wasTabListOpen) {
+                onTabPress();
             }
 
-            if (isTabPressed) {
-                sendTabOpenPacket();
-            } else if (wasTabPressed) {
-                sendTabClosePacket();
+            if (isTabListOpen) {
+                onTabOpen();
+            } else if (wasTabListOpen) {
+                onTabClose();
             }
 
-            wasTabPressed = isTabPressed;
+            wasTabListOpen = isTabListOpen;
 
             long currentTime = System.currentTimeMillis();
             if (currentTime - lastSaveTime >= SAVE_INTERVAL) {
@@ -44,15 +37,22 @@ public class KeyInputHandler {
         });
     }
 
-    private static void sendTabPressPacket() {
-        ClientPlayNetworking.send(new Identifier("tabstats", "tab_press"), PacketByteBufs.create());
+    private static void onTabPress() {
+        PlayerStats stats = StatsManager.getPlayerStats();
+        stats.incrementTabPress();
+        AchievementChecker.checkAchievements(MinecraftClient.getInstance(), stats);
     }
 
-    private static void sendTabOpenPacket() {
-        ClientPlayNetworking.send(new Identifier("tabstats", "tab_open"), PacketByteBufs.create());
+    private static void onTabOpen() {
+        PlayerStats stats = StatsManager.getPlayerStats();
+        stats.startTabOpen();
+        stats.updateOpenTime();
     }
 
-    private static void sendTabClosePacket() {
-        ClientPlayNetworking.send(new Identifier("tabstats", "tab_close"), PacketByteBufs.create());
+    private static void onTabClose() {
+        PlayerStats stats = StatsManager.getPlayerStats();
+        stats.endTabOpen();
+        AchievementChecker.checkAchievements(MinecraftClient.getInstance(), stats);
+        StatsManager.saveStats();
     }
 }

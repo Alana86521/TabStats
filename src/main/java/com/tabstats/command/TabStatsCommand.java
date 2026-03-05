@@ -6,9 +6,10 @@ import com.tabstats.achievement.Achievement;
 import com.tabstats.achievement.AchievementRegistry;
 import com.tabstats.data.PlayerStats;
 import com.tabstats.data.StatsManager;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.HoverEvent;
 import net.minecraft.text.Text;
@@ -17,24 +18,24 @@ import java.util.List;
 import java.util.Set;
 
 public class TabStatsCommand {
-    public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
-        dispatcher.register(CommandManager.literal("tabstats")
+    public static void register(CommandDispatcher<FabricClientCommandSource> dispatcher) {
+        dispatcher.register(ClientCommandManager.literal("tabstats")
             .executes(TabStatsCommand::showStats)
-            .then(CommandManager.literal("achievements")
+            .then(ClientCommandManager.literal("achievements")
                 .executes(TabStatsCommand::showAchievements))
-            .then(CommandManager.literal("reset")
+            .then(ClientCommandManager.literal("reset")
                 .executes(TabStatsCommand::resetSession))
         );
     }
 
-    private static int showStats(CommandContext<ServerCommandSource> context) {
-        ServerPlayerEntity player = context.getSource().getPlayer();
+    private static int showStats(CommandContext<FabricClientCommandSource> context) {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
         if (player == null) return 0;
 
-        PlayerStats stats = StatsManager.getPlayerStats(player.getUuid());
+        PlayerStats stats = StatsManager.getPlayerStats();
         
         player.sendMessage(Text.literal("§8§m                                                    "), false);
-        player.sendMessage(Text.literal("§6§lTabStats"), false);
+        player.sendMessage(Text.literal("§6§lTabStats §7- Server: §e" + StatsManager.getCurrentServer()), false);
         player.sendMessage(Text.literal(""), false);
         
         player.sendMessage(Text.literal("§e§lTotal Statistics:"), false);
@@ -53,9 +54,8 @@ public class TabStatsCommand {
         
         Text achievementsButton = Text.literal("§a§l[View Achievements]")
             .styled(style -> style
-                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tabstats achievements"))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("§7Click to view all achievements")))
-            );
+                .withClickEvent(new ClickEvent.RunCommand("/tabstats achievements"))
+                .withHoverEvent(new HoverEvent.ShowText(Text.literal("§7Click to view achievements"))));
         player.sendMessage(achievementsButton, false);
         
         player.sendMessage(Text.literal("§8§m                                                    "), false);
@@ -63,11 +63,11 @@ public class TabStatsCommand {
         return 1;
     }
 
-    private static int showAchievements(CommandContext<ServerCommandSource> context) {
-        ServerPlayerEntity player = context.getSource().getPlayer();
+    private static int showAchievements(CommandContext<FabricClientCommandSource> context) {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
         if (player == null) return 0;
 
-        PlayerStats stats = StatsManager.getPlayerStats(player.getUuid());
+        PlayerStats stats = StatsManager.getPlayerStats();
         Set<String> unlocked = stats.getUnlockedAchievements();
         List<Achievement> allAchievements = AchievementRegistry.getAllAchievements();
         
@@ -95,7 +95,7 @@ public class TabStatsCommand {
         return 1;
     }
 
-    private static void displayAchievement(ServerPlayerEntity player, PlayerStats stats, Achievement achievement) {
+    private static void displayAchievement(ClientPlayerEntity player, PlayerStats stats, Achievement achievement) {
         boolean isUnlocked = stats.hasAchievement(achievement.getId());
         
         String status = isUnlocked ? "§a✔" : "§7✘";
@@ -116,20 +116,16 @@ public class TabStatsCommand {
             }
         }
         
-        Text achievementText = Text.literal("  " + status + " " + title + progress)
-            .styled(style -> style
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
-                    Text.literal("§7" + achievement.getDescription())))
-            );
+        Text achievementText = Text.literal("  " + status + " " + title + progress + " §8- " + achievement.getDescription());
         
         player.sendMessage(achievementText, false);
     }
 
-    private static int resetSession(CommandContext<ServerCommandSource> context) {
-        ServerPlayerEntity player = context.getSource().getPlayer();
+    private static int resetSession(CommandContext<FabricClientCommandSource> context) {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
         if (player == null) return 0;
 
-        PlayerStats stats = StatsManager.getPlayerStats(player.getUuid());
+        PlayerStats stats = StatsManager.getPlayerStats();
         stats.resetSession();
         
         player.sendMessage(Text.literal("§aSession statistics have been reset!"), false);

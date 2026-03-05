@@ -1,73 +1,95 @@
 package com.tabstats.data;
 
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.server.MinecraftServer;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 public class StatsManager {
-    private static final Map<UUID, PlayerStats> playerStatsMap = new HashMap<>();
-    private static File saveFile;
+    private static final Map<String, PlayerStats> serverStatsMap = new HashMap<>();
+    private static File saveDir;
+    private static String currentServerAddress = "singleplayer";
+    private static boolean initialized = false;
 
-    public static void initialize(MinecraftServer server) {
-        if (server != null) {
-            File worldDir = server.getSavePath(net.minecraft.world.SaveProperties.LEVEL_DAT).getParent().toFile();
-            File tabStatsDir = new File(worldDir, "tabstats");
-            if (!tabStatsDir.exists()) {
-                tabStatsDir.mkdirs();
-            }
-            saveFile = new File(tabStatsDir, "player_stats.dat");
-            loadStats();
+    public static void initialize() {
+        if (initialized) return;
+        saveDir = FabricLoader.getInstance().getConfigDir().resolve("tabstats").toFile();
+        if (!saveDir.exists()) {
+            saveDir.mkdirs();
         }
+        initialized = true;
     }
 
-    public static PlayerStats getPlayerStats(UUID playerUuid) {
-        return playerStatsMap.computeIfAbsent(playerUuid, k -> new PlayerStats());
+    public static void setCurrentServer(String serverAddress) {
+        if (serverAddress == null || serverAddress.isEmpty()) {
+            currentServerAddress = "singleplayer";
+        } else {
+            currentServerAddress = extractBaseDomain(serverAddress);
+        }
+        loadStats();
+    }
+
+    private static String extractBaseDomain(String address) {
+        String cleaned = address.replaceAll(":[0-9]+$", "");
+        cleaned = cleaned.replaceAll("^/", "");
+        
+        String[] parts = cleaned.split("\\.");
+        if (parts.length >= 2) {
+            return (parts[parts.length - 2] + "." + parts[parts.length - 1]).toLowerCase();
+        }
+        return cleaned.replaceAll("[^a-zA-Z0-9.-]", "_").toLowerCase();
+    }
+
+    public static String getCurrentServer() {
+        return currentServerAddress;
+    }
+
+    public static PlayerStats getPlayerStats() {
+        initialize();
+        return serverStatsMap.computeIfAbsent(currentServerAddress, k -> {
+            loadStats();
+            return serverStatsMap.getOrDefault(currentServerAddress, new PlayerStats());
+        });
     }
 
     public static void saveStats() {
-        if (saveFile == null) return;
+        initialize();
+        if (saveDir == null) return;
         
         try {
-            NbtCompound root = new NbtCompound();
-            NbtCompound playersNbt = new NbtCompound();
-            
-            for (Map.Entry<UUID, PlayerStats> entry : playerStatsMap.entrySet()) {
-                NbtCompound playerNbt = new NbtCompound();
-                entry.getValue().writeNbt(playerNbt);
-                playersNbt.put(entry.getKey().toString(), playerNbt);
+            File saveFile = new File(saveDir, currentServerAddress + ".dat");
+            PlayerStats stats = serverStatsMap.get(currentServerAddress);
+            if (stats != null) {
+                NbtCompound root = new NbtCompound();
+                stats.writeNbt(root);
+                NbtIo.writeCompressed(root, saveFile.toPath());
             }
-            
-            root.put("Players", playersNbt);
-            NbtIo.writeCompressed(root, saveFile.toPath());
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     private static void loadStats() {
-        if (saveFile == null || !saveFile.exists()) return;
+        initialize();
+        if (saveDir == null) return;
+        
+        File saveFile = new File(saveDir, currentServerAddress + ".dat");
+        if (!saveFile.exists()) {
+            serverStatsMap.put(currentServerAddress, new PlayerStats());
+            return;
+        }
         
         try {
             NbtCompound root = NbtIo.readCompressed(saveFile.toPath(), net.minecraft.nbt.NbtSizeTracker.ofUnlimitedBytes());
-            NbtCompound playersNbt = root.getCompound("Players");
-            
-            for (String key : playersNbt.getKeys()) {
-                try {
-                    UUID uuid = UUID.fromString(key);
-                    PlayerStats stats = new PlayerStats();
-                    stats.readNbt(playersNbt.getCompound(key));
-                    playerStatsMap.put(uuid, stats);
-                } catch (IllegalArgumentException e) {
-                    e.printStackTrace();
-                }
-            }
+            PlayerStats stats = new PlayerStats();
+            stats.readNbt(root);
+            serverStatsMap.put(currentServerAddress, stats);
         } catch (IOException e) {
             e.printStackTrace();
+            serverStatsMap.put(currentServerAddress, new PlayerStats());
         }
     }
 }

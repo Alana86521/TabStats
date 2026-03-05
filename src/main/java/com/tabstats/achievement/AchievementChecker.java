@@ -1,15 +1,16 @@
 package com.tabstats.achievement;
 
 import com.tabstats.data.PlayerStats;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
+import com.tabstats.data.StatsManager;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 
 import java.util.List;
 
 public class AchievementChecker {
-    public static void checkAchievements(ServerPlayerEntity player, PlayerStats stats) {
+    public static void checkAchievements(MinecraftClient client, PlayerStats stats) {
+        if (client.player == null) return;
+        
         List<Achievement> achievements = AchievementRegistry.getAllAchievements();
         
         for (Achievement achievement : achievements) {
@@ -29,24 +30,17 @@ public class AchievementChecker {
                 
                 if (unlocked) {
                     stats.unlockAchievement(achievement.getId());
-                    notifyAchievement(player, achievement);
+                    notifyAchievement(client, achievement);
+                    StatsManager.saveStats();
                 }
             }
         }
     }
     
-    private static void notifyAchievement(ServerPlayerEntity player, Achievement achievement) {
-        player.sendMessage(Text.literal("§6§l✦ Achievement Unlocked! ✦"), false);
-        player.sendMessage(Text.literal("§e" + achievement.getTitle()), false);
-        player.sendMessage(Text.literal("§7" + achievement.getDescription()), false);
-        
-        player.getWorld().playSound(
-            null,
-            player.getBlockPos(),
-            SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
-            SoundCategory.PLAYERS,
-            1.0F,
-            1.0F
-        );
+    private static void notifyAchievement(MinecraftClient client, Achievement achievement) {
+        if (client.player == null) return;
+        client.player.sendMessage(Text.literal("§6§l✦ Achievement Unlocked! ✦"), false);
+        client.player.sendMessage(Text.literal("§e" + achievement.getTitle()), false);
+        client.player.sendMessage(Text.literal("§7" + achievement.getDescription()), false);
     }
 }

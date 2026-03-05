@@ -96,15 +96,15 @@ public class PlayerStats {
     }
 
     public void readNbt(NbtCompound nbt) {
-        totalTabPresses = nbt.getInt("TotalTabPresses");
-        sessionTabPresses = nbt.getInt("SessionTabPresses");
-        totalOpenTime = nbt.getLong("TotalOpenTime");
-        sessionOpenTime = nbt.getLong("SessionOpenTime");
+        totalTabPresses = nbt.getInt("TotalTabPresses").orElse(0);
+        sessionTabPresses = nbt.getInt("SessionTabPresses").orElse(0);
+        totalOpenTime = nbt.getLong("TotalOpenTime").orElse(0L);
+        sessionOpenTime = nbt.getLong("SessionOpenTime").orElse(0L);
         
         unlockedAchievements.clear();
-        int count = nbt.getInt("AchievementCount");
+        int count = nbt.getInt("AchievementCount").orElse(0);
         for (int i = 0; i < count; i++) {
-            String achievement = nbt.getString("Achievement_" + i);
+            String achievement = nbt.getString("Achievement_" + i).orElse("");
             if (!achievement.isEmpty()) {
                 unlockedAchievements.add(achievement);
             }
